@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Instagram Messages Distributor - Viral Patel</title>
+    <link href="/css/style.css" rel="stylesheet" type="text/css" />
+    <style>
+        .scrollbar-w-2::-webkit-scrollbar {
+            width: 1rem!important;
+            height: 1rem!important;
+        }
+
+        .scrollbar-thumb-gray::-webkit-scrollbar-thumb {
+            background-color: #cbd5e0!important;
+        }
+
+        .scrollbar-track-gray-lighter::-webkit-scrollbar-track {
+            background-color: #e2e8f0!important;
+        }
+
+        .selection-box {
+            top: 50%;
+            left: 50%;
+            margin-left: -25%;
+            margin-top: -10%;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-root"> 
+         <!-- Username and File selection box  -->
+        <div class="w-1/2 m-auto selection-box absolute" v-if="messages.length == 0">
+            <h2 class="font-bold text-2xl text-center text-blue-500">Please enter your exact instagram username and upload the messages.json file provided by instagram. Other files will not work.</h2>  
+            <input type="text" v-model="username" class="w-full p-2 my-2 rounded bg-gray-300" placeholder="Please enter your exact instagram username." />
+            <input v-if="uploadFile" type="file" @change="readFile" class="w-full p-2 my-2 rounded bg-gray-300" placeholder="Please upload the messages.json file." />
+        </div>
+        <div v-else class="w-1/2 h-screen flex m-auto">
+            <!-- Left sidebar where username list is shown -->
+            <div class="w-1/4 bg-gray-100 w-64 border-r px-8 py-4 h-screen overflow-y-auto overflow-x-hidden scrollbar-w-2 scrollbar-track-gray-lighter scrollbar-thumb-rounded scrollbar-thumb-gray scrolling-touch">
+                <h2 class="text-2xl font-bold text-blue-500">List of Users</h2>
+                <ul>
+                    <template v-for="participant,index in messages">
+                    <li :class="[currentIdx == index ? 'bg-blue-500 p-1 text-white rounded text-center' : '']" class="my-2">
+                        <a href="Javascript:void(0)" @click.prevent="showChat(index)" v-if="participant.participants.length < 3">
+                            <span v-for="user in participant.participants" v-if="user != username">{{user}}</span>
+                        </a>
+                        <a href="Javascript:void(0)" @click.prevent="showChat(index)" v-else>
+                            Group Chat
+                        </a>
+                    </li>
+                    </template>
+                </ul>
+            </div>
+            <!-- Right side box where chat data is shown -->
+            <div class="w-3/4 h-screen overflow-y-auto overflow-x-hidden px-4 scrollbar-w-2 scrollbar-track-gray-lighter scrollbar-thumb-rounded scrollbar-thumb-gray scrolling-touch">                
+                <div class="mt-2">
+                    <div v-if="selectedParticipants.length > 2" class="overflow-x-scroll scrollbar-w-2 scrollbar-track-gray-lighter scrollbar-thumb-rounded scrollbar-thumb-gray
+                    scrolling-touch">
+                        <span class="bg-blue-500 px-1 mr-1 rounded text-white"
+                            v-for="participant in selectedParticipants">{{participant}}</span>
+                    </div>
+                    <div v-if="loading">
+                        Loading Conversation...
+                    </div>                                        
+                    <template v-else v-for="message in selectedConversation">                        
+                        <div class="text-right my-2" v-if="message.sender == username">
+                            <div class="text-gray-600 text-sm">You</div>
+                            <div class="bg-blue-500 rounded py-1 px-3 text-white inline-block">
+                                <span v-if="message.text">
+                                    {{message.text}}
+                                </span>              
+                                <a :href="message.media" target="_blank" v-else-if="message.media">
+                                    <img class="w-64" :src="message.media"/>
+                                </a>
+                                <a :href="message.media_share_url" target="_blank" v-else-if="message.media_share_url && isValidURL(message.media_share_url)">
+                                    <img class="w-64" :src="message.media_share_url" v-if="isImage(message.media_share_url)" />
+                                    <video width="400" controls v-else>
+                                        <source :src="message.media_share_url" type="video/mp4">
+                                        <!-- <source src="mov_bbb.ogg" type="video/ogg"> -->
+                                        Your browser does not support HTML5 video.
+                                    </video>
+                                </a>
+                                <span v-else>This message is no longer available.</span>                                
+                            </div>
+                            <div class="text-gray-600 text-sm">{{message.created_at | normaldate}}</div>
+                        </div>                            
+                        <div class="my-2" v-else>
+                            <div class="text-gray-600 text-sm">{{message.sender}}</div>
+                            <div class="bg-green-500 rounded p-2 text-white inline-block">
+                                <span v-if="message.text">
+                                    {{message.text}}
+                                </span>
+                                <a :href="message.media" target="_blank" v-else-if="message.media">
+                                    <img class="w-64" :src="message.media" />
+                                </a>  
+                                <a :href="message.media_share_url" target="_blank" v-else-if="message.media_share_url && isValidURL(message.media_share_url)">
+                                    <img class="w-64" :src="message.media_share_url" v-if="isImage(message.media_share_url)" />
+                                    <video width="400" controls v-else>
+                                        <source :src="message.media_share_url" type="video/mp4">
+                                        <!-- <source src="mov_bbb.ogg" type="video/ogg"> -->
+                                        Your browser does not support HTML5 video.
+                                    </video>
+                                </a>
+                                <span v-else>This message is no longer available.</span>
+                            </div>
+                            <div class="text-gray-600 text-sm">{{message.created_at | normaldate}}</div>
+                        </div>     
+                    </template>                
+                </div>
+            </div>
+        </div>                     
+    </div>
+
+    <script src="vue.js"></script>
+    <script src="moment.js"></script>
+    <script>
+        const app = new Vue({
+            el:'#app-root',
+            data:{
+                messages:[],
+                selectedConversation:{},
+                selectedParticipants:[],
+                username:'',
+                loading:false,
+                originalConversation:{},
+                uploadFile:true,
+                currentIdx:0
+            },
+            filters:{
+                normaldate:function(value) {
+                    return moment(value).format('MMM D YYYY, h:mm a');
+                }
+            },           
+            methods:{                
+                showChat(index){
+                    this.loading = true;
+                    this.currentIdx = index;
+                    setTimeout(() => {                        
+                        this.selectedConversation = this.messages[index].conversation;
+                        this.selectedParticipants = this.messages[index].participants;
+                        this.loading = false;
+                    }, 1000);                    
+                },
+                isValidURL(string) {
+                    var res = string.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/g);
+                    return (res !== null)
+                },
+                isImage(url) {
+                    return (url.indexOf('.jpg') !== -1);
+                },   
+                readFile(e){                    
+                    if(this.username !== ''){
+                        var reader = new FileReader();
+
+                        reader.onload = (event) => {
+                            const jsonObj = JSON.parse(event.target.result);
+                            this.messages = jsonObj;
+                            this.showChat(this.currentIdx);
+                        }
+
+                        reader.readAsText(e.target.files[0]);
+                    } else {
+                        alert('Please enter your exact instgram username.');
+                    }    
+                    
+                    this.uploadFile = false;
+                    this.$nextTick( () => {
+                        this.uploadFile = true;
+                    });
+                }             
+            },            
+        });
+    </script>
+</body>
+</html>
